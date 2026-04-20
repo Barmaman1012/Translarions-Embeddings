@@ -1,26 +1,50 @@
+from datetime import datetime
+from typing import Optional
+from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 
-class TranslationInput(BaseModel):
-    language: str = Field(..., description="Language code or label for the translation.")
-    title: str = Field(..., description="Display title for the translation.")
-    content: str = Field(..., min_length=1, description="Raw translated text content.")
+class ParsedFileSummary(BaseModel):
+    filename: str
+    extension: str
+    content_length: int = Field(..., ge=0)
+    preview: str
 
 
-class UploadRequest(BaseModel):
-    project_name: str = Field(..., min_length=1, description="Project name.")
-    source_language: str = Field(..., description="Language of the original text.")
-    source_text: str = Field(..., min_length=1, description="Raw source text content.")
-    translations: list[TranslationInput] = Field(
-        default_factory=list,
-        description="List of translated texts included in the upload.",
-    )
+class SegmentPreviewItem(BaseModel):
+    segment_index: int = Field(..., ge=0)
+    text: str
+    char_count: int = Field(..., ge=0)
+
+
+class DocumentPlaceholder(BaseModel):
+    id: UUID
+    role: str
+    title: str
+    work_name: Optional[str] = None
+    language: Optional[str] = None
+    translator_name: Optional[str] = None
+    filename: str
+    content_length: int = Field(..., ge=0)
+    segment_count: int = Field(default=0, ge=0)
+    segments: list[SegmentPreviewItem] = Field(default_factory=list)
+    status: str
+    created_at: Optional[datetime] = None
+
+
+class UploadMetadata(BaseModel):
+    title: Optional[str] = None
+    work_name: Optional[str] = None
+    source_language: Optional[str] = None
+    translation_language: Optional[str] = None
 
 
 class UploadResponse(BaseModel):
     upload_id: str
-    project_name: str
-    source_language: str
-    translation_count: int = Field(..., ge=0)
     status: str
-    message: str
+    metadata: UploadMetadata
+    source_file: ParsedFileSummary
+    translation_files: list[ParsedFileSummary]
+    documents: list[DocumentPlaceholder]
+    notes: list[str] = Field(default_factory=list)

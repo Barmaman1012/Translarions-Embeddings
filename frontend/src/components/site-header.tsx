@@ -1,18 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-
-const navItems = [
-  { href: "/", label: "Home" },
-  { href: "/projects", label: "Projects" },
-  { href: "/upload", label: "Upload" },
-  { href: "/explore", label: "Explore" },
-];
 
 export function SiteHeader() {
-  const pathname = usePathname();
-
   return (
     <header className="site-header">
       <div className="site-header__inner">
@@ -24,21 +14,25 @@ export function SiteHeader() {
             Research workspace for multilingual semantic comparison
           </span>
         </div>
-
-        <nav className="nav" aria-label="Primary">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`nav__link${isActive ? " nav__link--active" : ""}`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="nav nav--minimal" aria-label="Primary">
+          <a href="#upload" className="nav__link">
+            Upload
+          </a>
+          <a href="#parsed" className="nav__link">
+            Parse
+          </a>
+          <a href="#segments" className="nav__link">
+            Segments
+          </a>
+          <a href="#embeddings" className="nav__link">
+            Embeddings
+          </a>
+          <a href="#similarity" className="nav__link">
+            Similarity
+          </a>
+          <a href="#visualization" className="nav__link">
+            Visualization
+          </a>
         </nav>
       </div>
     </header>

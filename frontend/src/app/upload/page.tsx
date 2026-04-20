@@ -1,36 +1,11 @@
-import { SectionTitle } from "@/components/section-title";
-import { uploadChecklist } from "@/lib/mock-data";
+import { UploadWorkspace } from "@/components/upload/upload-workspace";
 
 export default function UploadPage() {
   return (
-    <div className="page">
-      <SectionTitle
-        eyebrow="Upload"
-        title="Prepare a text ingestion run"
-        description="This page is a UI placeholder for the future upload flow. It outlines the metadata and processing decisions the real application will capture."
-      />
-
-      <section className="section grid grid--cards">
-        <article className="placeholder-panel">
-          <h3>Planned form fields</h3>
-          <div className="pill-row">
-            <span className="pill">Project title</span>
-            <span className="pill">Source language</span>
-            <span className="pill">Translation files</span>
-            <span className="pill">Segmentation mode</span>
-            <span className="pill">Notes</span>
-          </div>
-        </article>
-
-        <article className="placeholder-panel">
-          <h3>Upload checklist</h3>
-          <ol className="placeholder-list">
-            {uploadChecklist.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ol>
-        </article>
-      </section>
-    </div>
+    <UploadWorkspace
+      heading="Ingestion Lab"
+      description="A standalone testing surface for upload and paste workflows. The primary product path now lives inside each project workspace under the Ingestion stage."
+      note="Use this page when you want to test ingestion without opening a specific project."
+    />
   );
 }

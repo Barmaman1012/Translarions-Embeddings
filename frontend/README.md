@@ -19,6 +19,12 @@ cp .env.example .env.local
 
 Current variables are placeholders only. The app does not connect to the backend yet.
 
+For the ingestion UI, set `NEXT_PUBLIC_API_BASE_URL` to the FastAPI server origin, for example:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
 ## Run Locally
 
 1. Install dependencies:
@@ -44,4 +50,9 @@ npm run dev
 
 ## Current Scope
 
-This frontend is intentionally limited to infrastructure and UI scaffolding. It uses mock data and does not yet call backend or Supabase services.
+This frontend is still early-stage, but the `/upload` page now supports:
+
+- real multipart upload requests to the backend upload endpoint
+- local preview mode for pasted text when backend file upload is not the right test path
+
+Segmentation and backend-backed paste-text ingestion are not wired yet.

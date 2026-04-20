@@ -1,32 +1,23 @@
+from typing import Optional
+from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 
-class PassageInput(BaseModel):
-    id: str = Field(..., description="Passage identifier.")
-    text: str = Field(..., min_length=1, description="Text to embed.")
-    language: str = Field(..., description="Language associated with the passage.")
-
-
 class EmbedRequest(BaseModel):
-    project_id: str = Field(..., description="Project identifier.")
-    passages: list[PassageInput] = Field(
-        default_factory=list,
-        description="Passages that should receive embeddings.",
+    model_name: str = Field(..., description="Embedding model to run.")
+    document_id: Optional[str] = Field(
+        default=None,
+        description="If provided, embed only segments for this document.",
     )
-
-
-class EmbedVectorPreview(BaseModel):
-    passage_id: str
-    dimensions: int = Field(..., ge=0)
-    preview: list[float] = Field(
-        default_factory=list,
-        description="Short mock preview of the resulting vector.",
+    reembed: bool = Field(
+        default=False,
+        description="If true, overwrite existing embeddings for the same model.",
     )
 
 
 class EmbedResponse(BaseModel):
-    project_id: str
     model_name: str
-    embedded_count: int = Field(..., ge=0)
-    status: str
-    items: list[EmbedVectorPreview]
+    embedding_dim: int = Field(..., ge=0)
+    number_of_segments_embedded: int = Field(..., ge=0)
+    affected_document_ids: list[UUID] = Field(default_factory=list)

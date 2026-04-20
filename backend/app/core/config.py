@@ -11,6 +11,7 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
+    database_url: str = ""
     supabase_url: str = ""
     supabase_service_role_key: str = ""
     embedding_model_name: str = (
