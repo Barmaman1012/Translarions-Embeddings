@@ -517,9 +517,15 @@ export function PipelinePage() {
   );
 }
 
-function getItemPreviewText(item: { preview?: unknown }): string {
-  if (typeof item.preview === "string" && item.preview) {
-    return item.preview;
+function getItemPreviewText(item: unknown): string {
+  if (
+    item &&
+    typeof item === "object" &&
+    "preview" in item &&
+    typeof (item as { preview?: unknown }).preview === "string" &&
+    (item as { preview: string }).preview
+  ) {
+    return (item as { preview: string }).preview;
   }
 
   return "Parsed text preview will appear here after upload.";
