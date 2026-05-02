@@ -1033,6 +1033,25 @@ select {
   border-radius: 16px;
 }
 
+.viz-canvas-wrap {
+  width: 100%;
+  min-height: 360px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(246, 248, 251, 0.94);
+}
+
+.viz-canvas {
+  display: block;
+  width: 100%;
+  height: 420px;
+  cursor: grab;
+}
+
+.viz-canvas:active {
+  cursor: grabbing;
+}
+
 .viz-plot__bg {
   fill: rgba(246, 248, 251, 0.92);
 }

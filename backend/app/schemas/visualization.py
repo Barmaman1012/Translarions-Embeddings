@@ -14,6 +14,12 @@ class VisualizationRequest(BaseModel):
         default="pca",
         description="Projection method. PCA is currently supported.",
     )
+    projection_dimensions: int = Field(
+        default=2,
+        ge=2,
+        le=3,
+        description="Number of output dimensions for the projection.",
+    )
 
 
 class VisualizationPoint(BaseModel):
@@ -28,12 +34,13 @@ class VisualizationPoint(BaseModel):
     embedding_dim: int = Field(..., ge=0)
     x: float
     y: float
+    z: Optional[float] = None
 
 
 class VisualizationResponse(BaseModel):
     model_name: str
     projection_method: str
+    projection_dimensions: int = Field(..., ge=2, le=3)
     point_count: int = Field(..., ge=0)
     points: list[VisualizationPoint] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
-

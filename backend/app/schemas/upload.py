@@ -40,6 +40,20 @@ class UploadMetadata(BaseModel):
     translation_language: Optional[str] = None
 
 
+class RawTextTranslationInput(BaseModel):
+    label: str = Field(..., min_length=1)
+    text: str = Field(..., min_length=1)
+
+
+class RawTextIngestRequest(BaseModel):
+    title: Optional[str] = None
+    work_name: Optional[str] = None
+    source_language: Optional[str] = None
+    translation_language: Optional[str] = None
+    source_text: str = Field(..., min_length=1)
+    translations: list[RawTextTranslationInput] = Field(..., min_length=1)
+
+
 class UploadResponse(BaseModel):
     upload_id: str
     status: str

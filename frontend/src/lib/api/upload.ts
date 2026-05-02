@@ -1,4 +1,5 @@
 import type {
+  RawTextIngestRequestInput,
   UploadRequestInput,
   UploadResponse,
   UploadReviewItem,
@@ -51,8 +52,51 @@ export async function uploadDocuments(
   return payload as UploadResponse;
 }
 
+export async function ingestRawText(
+  input: RawTextIngestRequestInput,
+): Promise<UploadResponse> {
+  const requestUrl = `${getApiBaseUrl()}/api/v1/ingest-text`;
+  let response: Response;
+
+  try {
+    response = await fetch(requestUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title: trimOptional(input.title),
+        work_name: trimOptional(input.workName),
+        source_language: trimOptional(input.sourceLanguage),
+        translation_language: trimOptional(input.translationLanguage),
+        source_text: input.sourceText,
+        translations: input.translations.map((translation) => ({
+          label: translation.label,
+          text: translation.text,
+        })),
+      }),
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Network request failed.";
+    throw new Error(`Request to ${requestUrl} failed: ${message}`);
+  }
+
+  const payload = (await response.json().catch(() => null)) as
+    | UploadResponse
+    | { detail?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(extractApiError(payload) ?? "Raw text ingestion failed.");
+  }
+
+  return payload as UploadResponse;
+}
+
 export function mapUploadResponseToReview(
   response: UploadResponse,
+  mode: UploadReviewState["mode"] = "upload-files",
 ): UploadReviewState {
   const reviewItems: UploadReviewItem[] = response.documents.map(
     (document, index) => {
@@ -72,14 +116,14 @@ export function mapUploadResponseToReview(
         segments: document.segments,
         preview: parsedFile?.preview ?? "",
         status: document.status,
-        sourceKind: "backend-upload",
+        sourceKind: mode === "paste-text" ? "backend-paste" : "backend-upload",
         filename: document.filename,
       };
     },
   );
 
   return {
-    mode: "upload-files",
+    mode,
     title: response.metadata.title ?? "",
     workName: response.metadata.work_name ?? "",
     sourceLanguage: response.metadata.source_language ?? "",
@@ -99,6 +143,15 @@ function appendOptionalField(
   if (value && value.trim()) {
     formData.append(key, value.trim());
   }
+}
+
+function trimOptional(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || undefined;
 }
 
 function extractApiError(payload: { detail?: string } | UploadResponse | null) {

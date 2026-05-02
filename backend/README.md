@@ -75,6 +75,7 @@ curl http://localhost:8000/debug/cors
 - `GET /health`
 - `GET /api/v1/projects`
 - `POST /api/v1/upload`
+- `POST /api/v1/ingest-text`
 - `POST /api/v1/segment`
 - `POST /api/v1/embed`
 - `POST /api/v1/similarity`
@@ -112,6 +113,43 @@ Upload flow now:
 1. parse files in memory
 2. create `documents` rows in Postgres
 3. segment each uploaded document automatically using sentence-first rules
+4. persist `segments` rows for the source and each translation
+5. return parsed previews, created document ids, and segment previews
+
+## Testing Raw Text Ingestion
+
+The raw-text ingestion endpoint accepts JSON and runs the same persistence and
+automatic segmentation pipeline as file upload.
+
+Example:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/ingest-text \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Demo Work",
+    "work_name": "Demo Work",
+    "source_language": "he",
+    "translation_language": "en",
+    "source_text": "האדם נברא כדי לחפש משמעות בעולם.",
+    "translations": [
+      {
+        "label": "English Translation 1",
+        "text": "A person is created to seek meaning in the world."
+      },
+      {
+        "label": "English Translation 2",
+        "text": "Humans exist in order to discover purpose."
+      }
+    ]
+  }'
+```
+
+Raw text ingestion flow:
+
+1. accept source and translation text as JSON
+2. create `documents` rows in Postgres
+3. segment each document automatically using sentence-first rules
 4. persist `segments` rows for the source and each translation
 5. return parsed previews, created document ids, and segment previews
 
@@ -256,7 +294,7 @@ Similarity response includes, for each target document:
 ## Running Visualization Projection
 
 Visualization projection uses persisted segment embeddings and currently reduces them
-to 2D with PCA for inspection.
+to 2D or 3D with PCA for inspection.
 
 Example:
 
@@ -269,7 +307,24 @@ curl -X POST http://localhost:8000/api/v1/visualization \
       "replace-with-source-document-uuid",
       "replace-with-target-document-uuid"
     ],
-    "projection_method": "pca"
+    "projection_method": "pca",
+    "projection_dimensions": 2
+  }'
+```
+
+For 3D:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/visualization \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_name": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "document_ids": [
+      "replace-with-source-document-uuid",
+      "replace-with-target-document-uuid"
+    ],
+    "projection_method": "pca",
+    "projection_dimensions": 3
   }'
 ```
 
@@ -277,8 +332,9 @@ Visualization response includes:
 
 - `model_name`
 - `projection_method`
+- `projection_dimensions`
 - `point_count`
-- `points` with per-segment metadata and 2D coordinates
+- `points` with per-segment metadata and projected coordinates
 - notes explaining the projection assumptions
 
 ## Current Scope

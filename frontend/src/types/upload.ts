@@ -52,6 +52,20 @@ export type UploadRequestInput = {
   translationLanguage?: string;
 };
 
+export type RawTextTranslationInput = {
+  label: string;
+  text: string;
+};
+
+export type RawTextIngestRequestInput = {
+  title?: string;
+  workName?: string;
+  sourceLanguage?: string;
+  translationLanguage?: string;
+  sourceText: string;
+  translations: RawTextTranslationInput[];
+};
+
 export type UploadReviewItem = {
   id: string;
   documentId?: string;
@@ -63,7 +77,7 @@ export type UploadReviewItem = {
   segments: SegmentPreviewItem[];
   preview: string;
   status: string;
-  sourceKind: "backend-upload" | "local-paste";
+  sourceKind: "backend-upload" | "backend-paste";
   filename?: string;
 };
 

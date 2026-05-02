@@ -16,6 +16,7 @@ export async function fetchVisualizationData(
       model_name: input.modelName,
       document_ids: input.documentIds,
       projection_method: input.projectionMethod ?? "pca",
+      projection_dimensions: input.projectionDimensions ?? 2,
     }),
   });
 
@@ -44,4 +45,3 @@ function extractApiError(
 
   return null;
 }
-

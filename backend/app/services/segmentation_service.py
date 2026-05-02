@@ -1,6 +1,6 @@
 import re
-from typing import Optional
 import logging
+from typing import List
 
 from app.schemas.segment import (
     SegmentDocumentInput,
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 PARAGRAPH_SPLIT_PATTERN = re.compile(r"\n\s*\n+")
 SENTENCE_SPLIT_PATTERN = re.compile(r"(?<=[.!?])\s+")
+MANUAL_SEGMENT_PATTERN = re.compile(r"\[SEGMENT\s+(\d+)\]")
 
 
 def segment_texts(payload: SegmentRequest) -> SegmentResponse:
@@ -43,6 +44,7 @@ def segment_texts(payload: SegmentRequest) -> SegmentResponse:
         total_segments=sum(item.segment_count for item in items),
         persisted_segments=persisted_segments,
         assumptions=[
+            "If [SEGMENT X] markers are present, those manual boundaries are respected as-is.",
             "Text is segmented by sentence first using lightweight punctuation heuristics.",
             "Blank lines still preserve paragraph order and act as a clean fallback boundary.",
             "Very long sentence runs are grouped into smaller chunks using the configured threshold.",
@@ -54,18 +56,7 @@ def segment_texts(payload: SegmentRequest) -> SegmentResponse:
 def _segment_document(
     *, document: SegmentDocumentInput, max_chars_per_segment: int
 ) -> SegmentedDocument:
-    raw_segments = _segment_text(document.text, max_chars_per_segment)
-
-    segments = [
-        SegmentItem(
-            segment_index=index,
-            text=segment_text,
-            normalized_text=_normalize_text(segment_text),
-            length=_length_metadata(segment_text),
-            metadata=_build_segment_metadata(segment_text),
-        )
-        for index, segment_text in enumerate(raw_segments)
-    ]
+    segments = _segment_text(document.text, max_chars_per_segment)
 
     persisted = False
     if document.document_id:
@@ -117,7 +108,16 @@ def _segment_document(
     )
 
 
-def _segment_text(text: str, max_chars_per_segment: int) -> list[str]:
+def _segment_text(text: str, max_chars_per_segment: int) -> List[SegmentItem]:
+    if "[SEGMENT" in text:
+        manual_segments = split_manual_segments(text)
+        if manual_segments:
+            logger.info(
+                "Manual segmentation markers detected; using %s manual segments.",
+                len(manual_segments),
+            )
+            return manual_segments
+
     paragraphs = _split_paragraphs(text)
     raw_segments: list[str] = []
 
@@ -133,7 +133,59 @@ def _segment_text(text: str, max_chars_per_segment: int) -> list[str]:
 
             raw_segments.extend(_chunk_long_text(sentence_segment, max_chars_per_segment))
 
-    return [segment for segment in raw_segments if segment.strip()]
+    return [
+        SegmentItem(
+            segment_index=index,
+            text=segment_text,
+            normalized_text=_normalize_text(segment_text),
+            length=_length_metadata(segment_text),
+            metadata=_build_segment_metadata(segment_text),
+        )
+        for index, segment_text in enumerate(raw_segments)
+        if segment_text.strip()
+    ]
+
+
+def split_manual_segments(text: str) -> List[SegmentItem]:
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not normalized:
+        return []
+
+    matches = list(MANUAL_SEGMENT_PATTERN.finditer(normalized))
+    if not matches:
+        return []
+
+    segments: List[SegmentItem] = []
+    first_segment_number = int(matches[0].group(1))
+    marker_offset = 0 if first_segment_number == 0 else 1
+
+    logger.info(
+        "Manual segmentation markers interpreted as %s-based numbering.",
+        "zero" if marker_offset == 0 else "one",
+    )
+
+    for index, match in enumerate(matches):
+        segment_number = int(match.group(1))
+        content_start = match.end()
+        content_end = (
+            matches[index + 1].start() if index + 1 < len(matches) else len(normalized)
+        )
+        segment_text = _clean_manual_segment_text(normalized[content_start:content_end])
+
+        if not segment_text:
+            continue
+
+        segments.append(
+            SegmentItem(
+                segment_index=max(segment_number - marker_offset, 0),
+                text=segment_text,
+                normalized_text=_normalize_text(segment_text),
+                length=_length_metadata(segment_text),
+                metadata=_build_segment_metadata(segment_text),
+            )
+        )
+
+    return segments
 
 
 def _split_paragraphs(text: str) -> list[str]:
@@ -228,3 +280,7 @@ def _length_metadata(text: str) -> SegmentLengthMetadata:
 def _build_segment_metadata(text: str) -> dict:
     stripped = text.strip()
     return {"char_count": len(stripped), "word_count": len(stripped.split())}
+
+
+def _clean_manual_segment_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()

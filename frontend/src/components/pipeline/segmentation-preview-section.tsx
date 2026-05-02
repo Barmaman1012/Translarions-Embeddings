@@ -46,7 +46,7 @@ export function SegmentationPreviewSection({
                 ))}
               </div>
             ) : (
-              <EmptyPanel message="Segments are not available for local preview mode yet." compact />
+              <EmptyPanel message="No stored segments are available for this document yet." compact />
             )}
           </article>
         ))
@@ -68,4 +68,3 @@ function EmptyPanel({
     </div>
   );
 }
-

@@ -51,6 +51,7 @@ export type VisualizationRequestInput = {
   modelName: string;
   documentIds: string[];
   projectionMethod?: "pca";
+  projectionDimensions?: 2 | 3;
 };
 
 export type VisualizationPoint = {
@@ -65,13 +66,14 @@ export type VisualizationPoint = {
   embedding_dim: number;
   x: number;
   y: number;
+  z: number | null;
 };
 
 export type VisualizationResponse = {
   model_name: string;
   projection_method: string;
+  projection_dimensions: number;
   point_count: number;
   points: VisualizationPoint[];
   notes: string[];
 };
-

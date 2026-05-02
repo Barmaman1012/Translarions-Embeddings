@@ -29,10 +29,11 @@ def build_embedding_visualization(
         raise ValueError("document_ids must contain at least one document id.")
 
     logger.info(
-        "Building visualization projection: model=%s documents=%s method=%s",
+        "Building visualization projection: model=%s documents=%s method=%s dimensions=%s",
         payload.model_name,
         payload.document_ids,
         payload.projection_method,
+        payload.projection_dimensions,
     )
 
     with get_db_connection() as connection:
@@ -46,6 +47,7 @@ def build_embedding_visualization(
         return VisualizationResponse(
             model_name=payload.model_name,
             projection_method="pca",
+            projection_dimensions=payload.projection_dimensions,
             point_count=0,
             points=[],
             notes=[
@@ -63,7 +65,7 @@ def build_embedding_visualization(
         len(vectors[0]) if vectors else 0,
         distinct_vector_count,
     )
-    coordinates = _project_vectors_to_2d(vectors)
+    coordinates = _project_vectors(vectors, payload.projection_dimensions)
     logger.info(
         "Visualization raw coordinates sample: %s",
         coordinates[: min(5, len(coordinates))],
@@ -82,6 +84,7 @@ def build_embedding_visualization(
             embedding_dim=row["embedding_dim"],
             x=coordinate[0],
             y=coordinate[1],
+            z=coordinate[2] if len(coordinate) >= 3 else None,
         )
         for index, (row, coordinate) in enumerate(zip(rows, coordinates))
     ]
@@ -92,37 +95,46 @@ def build_embedding_visualization(
         len(points),
     )
 
+    dimensional_note = (
+        "PCA is a 3D approximation of the full embedding space."
+        if payload.projection_dimensions == 3
+        else "PCA is a 2D approximation of the full embedding space."
+    )
+
     return VisualizationResponse(
         model_name=payload.model_name,
         projection_method="pca",
+        projection_dimensions=payload.projection_dimensions,
         point_count=len(points),
         points=points,
         notes=[
-            "PCA is a 2D approximation of the full embedding space.",
+            dimensional_note,
             "Distances are useful for inspection, but they compress higher-dimensional structure.",
         ],
     )
 
 
-def _project_vectors_to_2d(vectors: list[list[float]]) -> list[tuple[float, float]]:
+def _project_vectors(
+    vectors: list[list[float]], dimensions: int
+) -> list[tuple[float, ...]]:
     if not vectors:
         return []
 
     if len(vectors) == 1:
-        return [(0.0, 0.0)]
+        return [tuple(0.0 for _ in range(dimensions))]
 
     centered = _center_vectors(vectors)
     if not any(any(abs(value) > 1e-12 for value in vector) for vector in centered):
         logger.warning(
             "Visualization projection received zero-variance embeddings after centering."
         )
-        return [(0.0, 0.0) for _ in vectors]
+        return [tuple(0.0 for _ in range(dimensions)) for _ in vectors]
 
     gram_matrix = _build_gram_matrix(centered)
     components: list[list[float]] = []
     eigenvalues: list[float] = []
 
-    for _ in range(2):
+    for _ in range(dimensions):
         eigenvector, eigenvalue = _power_iteration(gram_matrix, components)
         if eigenvector is None or eigenvalue <= 1e-12:
             break
@@ -134,19 +146,16 @@ def _project_vectors_to_2d(vectors: list[list[float]]) -> list[tuple[float, floa
             "PCA projection failed to find a usable component from the selected embeddings."
         )
 
-    coordinates: list[tuple[float, float]] = []
+    coordinates: list[tuple[float, ...]] = []
     for row_index in range(len(centered)):
-        x = (
-            components[0][row_index] * math.sqrt(eigenvalues[0])
-            if len(components) >= 1
-            else 0.0
-        )
-        y = (
-            components[1][row_index] * math.sqrt(eigenvalues[1])
-            if len(components) >= 2
-            else 0.0
-        )
-        coordinates.append((x, y))
+        values = []
+        for component_index in range(dimensions):
+            values.append(
+                components[component_index][row_index] * math.sqrt(eigenvalues[component_index])
+                if len(components) > component_index
+                else 0.0
+            )
+        coordinates.append(tuple(values))
 
     return coordinates
 

@@ -21,8 +21,8 @@ export function ParsedUploadReview({ review }: ParsedUploadReviewProps) {
         <article className="placeholder-panel">
           <h3>No parsed result yet</h3>
           <p>
-            Submit files to the backend or generate a local preview from pasted
-            text to inspect the ingestion result here.
+            Submit files or pasted text to the backend to inspect the ingestion
+            result here.
           </p>
         </article>
       ) : (
@@ -108,7 +108,7 @@ export function ParsedUploadReview({ review }: ParsedUploadReviewProps) {
                     </div>
                   ) : (
                     <p className="review-card__subtle">
-                      Segments are not available in local preview mode yet.
+                      No stored segments were returned for this document.
                     </p>
                   )}
                 </div>

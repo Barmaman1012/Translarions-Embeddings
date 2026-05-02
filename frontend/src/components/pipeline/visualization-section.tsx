@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 
 import { SUPPORTED_EMBEDDING_MODELS } from "@/types/analysis";
 import type { VisualizationPoint, VisualizationResponse } from "@/types/analysis";
+import { Visualization3DCanvas } from "@/components/pipeline/visualization-3d-canvas";
 import type { UploadReviewState } from "@/types/upload";
 
 type DocumentScope = "all" | "source" | "translations";
+type VisualizationView = "2d" | "3d";
 
 type VisualizationSectionProps = {
   review: UploadReviewState | null;
@@ -16,6 +18,8 @@ type VisualizationSectionProps = {
   onDocumentScopeChange: (scope: DocumentScope) => void;
   selectedDocumentIds: string[];
   onDocumentToggle: (documentId: string) => void;
+  selectedView: VisualizationView;
+  onSelectedViewChange: (view: VisualizationView) => void;
   onLoadVisualization: () => void;
   isLoading: boolean;
   errorMessage: string | null;
@@ -39,6 +43,8 @@ export function VisualizationSection({
   onDocumentScopeChange,
   selectedDocumentIds,
   onDocumentToggle,
+  selectedView,
+  onSelectedViewChange,
   onLoadVisualization,
   isLoading,
   errorMessage,
@@ -56,9 +62,11 @@ export function VisualizationSection({
     }
     return true;
   });
+
   const [activePointId, setActivePointId] = useState<string | null>(null);
   const [showCoordinatesTable, setShowCoordinatesTable] = useState(false);
   const [useJitter, setUseJitter] = useState(true);
+  const [resetCameraToken, setResetCameraToken] = useState(0);
 
   const activePoint = useMemo(() => {
     if (!result?.points.length) {
@@ -81,10 +89,17 @@ export function VisualizationSection({
     return map;
   }, [persistedItems]);
 
-  const plottedPoints = useMemo(
-    () => normalizePointsForPlot(result?.points ?? [], useJitter),
-    [result, useJitter],
+  const plottedPoints2d = useMemo(
+    () =>
+      selectedView === "2d"
+        ? normalizePointsFor2dPlot(result?.points ?? [], useJitter)
+        : [],
+    [result, selectedView, useJitter],
   );
+
+  function handleResetCamera() {
+    setResetCameraToken((current) => current + 1);
+  }
 
   return (
     <div className="inspection-stack">
@@ -102,6 +117,24 @@ export function VisualizationSection({
             ))}
           </select>
         </label>
+
+        <div className="field">
+          <span className="field__label">View</span>
+          <div className="model-picker" role="tablist" aria-label="Visualization view">
+            {(["2d", "3d"] as VisualizationView[]).map((view) => (
+              <button
+                key={view}
+                type="button"
+                className={`model-chip${
+                  selectedView === view ? " model-chip--active" : ""
+                }`}
+                onClick={() => onSelectedViewChange(view)}
+              >
+                {view.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="field">
           <span className="field__label">Scope</span>
@@ -169,6 +202,15 @@ export function VisualizationSection({
             />
             <span>Coordinates table</span>
           </label>
+          {selectedView === "3d" ? (
+            <button
+              type="button"
+              className="button button--secondary button--small"
+              onClick={handleResetCamera}
+            >
+              Reset camera
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -189,16 +231,24 @@ export function VisualizationSection({
           <div className="visualization-layout">
             <div className="viz-surface">
               <div className="viz-surface__meta">
-                <span className="pill">
-                  {result.projection_method.toUpperCase()}
-                </span>
+                <span className="pill">{result.projection_method.toUpperCase()}</span>
+                <span className="pill">{result.projection_dimensions}D</span>
                 <span className="pill">{result.point_count} points</span>
-                <span className="pill">
-                  x {formatDomain(plottedPoints, "x")}
-                </span>
-                <span className="pill">
-                  y {formatDomain(plottedPoints, "y")}
-                </span>
+                {selectedView === "2d" ? (
+                  <>
+                    <span className="pill">x {formatDomain2d(plottedPoints2d, "x")}</span>
+                    <span className="pill">y {formatDomain2d(plottedPoints2d, "y")}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="pill">x {formatDomain3d(result.points, "x")}</span>
+                    <span className="pill">y {formatDomain3d(result.points, "y")}</span>
+                    <span className="pill">z {formatDomain3d(result.points, "z")}</span>
+                    <span className="pill">Drag to rotate</span>
+                    <span className="pill">Shift + drag to pan</span>
+                    <span className="pill">Scroll to zoom</span>
+                  </>
+                )}
               </div>
 
               {activePoint ? (
@@ -208,68 +258,36 @@ export function VisualizationSection({
                   <span>#{activePoint.segment_index}</span>
                   <span>
                     x {activePoint.x.toFixed(4)} · y {activePoint.y.toFixed(4)}
+                    {selectedView === "3d" && activePoint.z !== null
+                      ? ` · z ${activePoint.z.toFixed(4)}`
+                      : ""}
                   </span>
                 </div>
               ) : null}
 
-              <svg
-                viewBox="0 0 100 100"
-                className="viz-plot"
-                role="img"
-                aria-label="2D embedding projection"
-              >
-                <rect x="0" y="0" width="100" height="100" rx="6" className="viz-plot__bg" />
-                <line x1="8" y1="50" x2="92" y2="50" className="viz-plot__axis" />
-                <line x1="50" y1="8" x2="50" y2="92" className="viz-plot__axis" />
+              {selectedView === "2d" ? (
+                <svg
+                  viewBox="0 0 100 100"
+                  className="viz-plot"
+                  role="img"
+                  aria-label="2D embedding projection"
+                >
+                  <rect x="0" y="0" width="100" height="100" rx="6" className="viz-plot__bg" />
+                  <line x1="8" y1="50" x2="92" y2="50" className="viz-plot__axis" />
+                  <line x1="50" y1="8" x2="50" y2="92" className="viz-plot__axis" />
 
-                {plottedPoints.map((point) => {
-                  const isActive = activePoint?.segment_id === point.segment_id;
-                  const color = colorMap[point.document_id] ?? "#315efb";
-                  return (
-                    <g
-                      key={point.segment_id}
-                      onMouseEnter={() => setActivePointId(point.segment_id)}
-                      onClick={() => setActivePointId(point.segment_id)}
-                    >
-                      {point.role === "original" ? (
-                        <circle
-                          cx={point.plotX}
-                          cy={point.plotY}
-                          r={isActive ? 2.15 : 1.55}
-                          fill={color}
-                          fillOpacity={isActive ? 0.92 : 0.72}
-                          stroke={isActive ? "#0f1728" : "rgba(15, 23, 40, 0.24)"}
-                          strokeWidth={isActive ? 0.42 : 0.26}
-                          className="viz-plot__point"
-                        />
-                      ) : (
-                        <rect
-                          x={point.plotX - (isActive ? 2.0 : 1.45)}
-                          y={point.plotY - (isActive ? 2.0 : 1.45)}
-                          width={isActive ? 4.0 : 2.9}
-                          height={isActive ? 4.0 : 2.9}
-                          rx="0.55"
-                          fill={color}
-                          fillOpacity={isActive ? 0.9 : 0.68}
-                          stroke={isActive ? "#0f1728" : "rgba(15, 23, 40, 0.24)"}
-                          strokeWidth={isActive ? 0.38 : 0.22}
-                          className="viz-plot__point"
-                        />
-                      )}
-
-                      {isActive ? (
-                        <text
-                          x={point.plotX + 1.4}
-                          y={point.plotY - 1.1}
-                          className="viz-plot__label"
-                        >
-                          #{point.segment_index}
-                        </text>
-                      ) : null}
-                    </g>
-                  );
-                })}
-              </svg>
+                  {plottedPoints2d.map((point) => renderPoint2d(point, activePoint, colorMap, setActivePointId))}
+                </svg>
+              ) : (
+                <Visualization3DCanvas
+                  points={result.points}
+                  activePointId={activePointId}
+                  onActivePointChange={setActivePointId}
+                  colorMap={colorMap}
+                  useJitter={useJitter}
+                  resetToken={resetCameraToken}
+                />
+              )}
 
               <div className="viz-legend">
                 {visibleItems
@@ -291,7 +309,7 @@ export function VisualizationSection({
                 <div>
                   <h3>Segment inspection</h3>
                   <p>
-                    {result.projection_method.toUpperCase()} projection ·{" "}
+                    {result.projection_method.toUpperCase()} {result.projection_dimensions}D projection ·{" "}
                     {result.point_count} points
                   </p>
                 </div>
@@ -323,6 +341,9 @@ export function VisualizationSection({
                       <span>{activePoint.document_label}</span>
                       <span>
                         x {activePoint.x.toFixed(3)} · y {activePoint.y.toFixed(3)}
+                        {selectedView === "3d" && activePoint.z !== null
+                          ? ` · z ${activePoint.z.toFixed(3)}`
+                          : ""}
                       </span>
                     </div>
                     <p>{activePoint.text}</p>
@@ -341,7 +362,9 @@ export function VisualizationSection({
                   ))}
                   <p className="inline-note">
                     Highly similar segments can project very close together, and
-                    PCA on a small dataset can compress variation.
+                    {selectedView === "3d"
+                      ? " 3D PCA can still exaggerate or compress structure."
+                      : " PCA on a small dataset can compress variation."}
                   </p>
                 </div>
               ) : null}
@@ -358,10 +381,11 @@ export function VisualizationSection({
                     <th>idx</th>
                     <th>x</th>
                     <th>y</th>
+                    {selectedView === "3d" ? <th>z</th> : null}
                   </tr>
                 </thead>
                 <tbody>
-                  {plottedPoints.map((point) => (
+                  {(selectedView === "2d" ? plottedPoints2d : result.points).map((point) => (
                     <tr
                       key={`coords-${point.segment_id}`}
                       className={
@@ -375,6 +399,9 @@ export function VisualizationSection({
                       <td>{point.segment_index}</td>
                       <td>{point.x.toFixed(5)}</td>
                       <td>{point.y.toFixed(5)}</td>
+                      {selectedView === "3d" ? (
+                        <td>{(point.z ?? 0).toFixed(5)}</td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
@@ -387,15 +414,69 @@ export function VisualizationSection({
   );
 }
 
-type PlotPoint = VisualizationPoint & {
+type PlotPoint2d = VisualizationPoint & {
   plotX: number;
   plotY: number;
 };
 
-function normalizePointsForPlot(
+function renderPoint2d(
+  point: PlotPoint2d,
+  activePoint: VisualizationPoint | null,
+  colorMap: Record<string, string>,
+  setActivePointId: (pointId: string) => void,
+) {
+  const isActive = activePoint?.segment_id === point.segment_id;
+  const color = colorMap[point.document_id] ?? "#315efb";
+
+  return (
+    <g
+      key={point.segment_id}
+      onMouseEnter={() => setActivePointId(point.segment_id)}
+      onClick={() => setActivePointId(point.segment_id)}
+    >
+      {point.role === "original" ? (
+        <circle
+          cx={point.plotX}
+          cy={point.plotY}
+          r={isActive ? 2.15 : 1.55}
+          fill={color}
+          fillOpacity={isActive ? 0.92 : 0.72}
+          stroke={isActive ? "#0f1728" : "rgba(15, 23, 40, 0.24)"}
+          strokeWidth={isActive ? 0.42 : 0.26}
+          className="viz-plot__point"
+        />
+      ) : (
+        <rect
+          x={point.plotX - (isActive ? 2.0 : 1.45)}
+          y={point.plotY - (isActive ? 2.0 : 1.45)}
+          width={isActive ? 4.0 : 2.9}
+          height={isActive ? 4.0 : 2.9}
+          rx="0.55"
+          fill={color}
+          fillOpacity={isActive ? 0.9 : 0.68}
+          stroke={isActive ? "#0f1728" : "rgba(15, 23, 40, 0.24)"}
+          strokeWidth={isActive ? 0.38 : 0.22}
+          className="viz-plot__point"
+        />
+      )}
+
+      {isActive ? (
+        <text
+          x={point.plotX + 1.4}
+          y={point.plotY - 1.1}
+          className="viz-plot__label"
+        >
+          #{point.segment_index}
+        </text>
+      ) : null}
+    </g>
+  );
+}
+
+function normalizePointsFor2dPlot(
   points: VisualizationPoint[],
   useJitter: boolean,
-): PlotPoint[] {
+): PlotPoint2d[] {
   if (points.length === 0) {
     return [];
   }
@@ -423,11 +504,11 @@ function normalizePointsForPlot(
     plotY: 90 - ((point.y - domainMinY) / domainRangeY) * 80,
   }));
 
-  return useJitter ? applyDisplayJitter(basePoints) : basePoints;
+  return useJitter ? applyDisplayJitter2d(basePoints) : basePoints;
 }
 
-function applyDisplayJitter(points: PlotPoint[]): PlotPoint[] {
-  const groups = new Map<string, PlotPoint[]>();
+function applyDisplayJitter2d(points: PlotPoint2d[]): PlotPoint2d[] {
+  const groups = new Map<string, PlotPoint2d[]>();
 
   points.forEach((point) => {
     const bucketX = Math.round(point.plotX * 2) / 2;
@@ -467,16 +548,29 @@ function stableSeed(value: string) {
   return (hash / 3600) * Math.PI * 2;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function formatDomain(points: PlotPoint[], axis: "x" | "y") {
+function formatDomain2d(points: PlotPoint2d[], axis: "x" | "y") {
   if (points.length === 0) {
     return "—";
   }
 
   const values = points.map((point) => (axis === "x" ? point.x : point.y));
+  return `${Math.min(...values).toFixed(3)} to ${Math.max(...values).toFixed(3)}`;
+}
+
+function formatDomain3d(points: VisualizationPoint[], axis: "x" | "y" | "z") {
+  if (points.length === 0) {
+    return "—";
+  }
+
+  const values = points.map((point) => {
+    if (axis === "x") {
+      return point.x;
+    }
+    if (axis === "y") {
+      return point.y;
+    }
+    return point.z ?? 0;
+  });
   return `${Math.min(...values).toFixed(3)} to ${Math.max(...values).toFixed(3)}`;
 }
 

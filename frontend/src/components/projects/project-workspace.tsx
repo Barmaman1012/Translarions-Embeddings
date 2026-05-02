@@ -57,7 +57,7 @@ function renderStage(project: ResearchProject, stage: WorkflowStageKey) {
           embedded
           heading="Ingestion"
           description="Bring source and translated texts into the project, inspect parsed results, and confirm the material is ready for segmentation."
-          note="Use file mode for the real backend parsing flow. Paste mode remains a local preview path for manual testing."
+          note="Use file upload or pasted text to create persisted documents and stored segments before downstream analysis."
         />
       );
     case "parsing":

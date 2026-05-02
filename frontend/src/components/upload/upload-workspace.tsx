@@ -3,7 +3,11 @@
 import { useState } from "react";
 
 import { ParsedUploadReview } from "@/components/upload/parsed-upload-review";
-import { mapUploadResponseToReview, uploadDocuments } from "@/lib/api/upload";
+import {
+  ingestRawText,
+  mapUploadResponseToReview,
+  uploadDocuments,
+} from "@/lib/api/upload";
 import type { UploadReviewState } from "@/types/upload";
 
 type InputMode = "upload-files" | "paste-text";
@@ -40,7 +44,7 @@ type UploadWorkspaceProps = {
 export function UploadWorkspace({
   embedded = false,
   heading = "Upload or paste texts for inspection",
-  description = "Use file upload to exercise the real FastAPI parsing flow, or use local paste mode to preview source and translation text before segmentation.",
+  description = "Use file upload or pasted text to run the same backend ingestion flow and inspect parsed, persisted documents before downstream analysis.",
   note = "This is the inspection stage before segmentation. Confirm the parsed content here before any downstream chunking or embedding work.",
   showReview = true,
   onReviewChange,
@@ -83,7 +87,7 @@ export function UploadWorkspace({
         translationLanguage: metadata.translationLanguage,
       });
 
-      const nextReview = mapUploadResponseToReview(response);
+      const nextReview = mapUploadResponseToReview(response, "upload-files");
       setReview(nextReview);
       onReviewChange?.(nextReview);
     } catch (error) {
@@ -97,66 +101,48 @@ export function UploadWorkspace({
     }
   }
 
-  function handlePastePreview(event: React.FormEvent<HTMLFormElement>) {
+  async function handlePastePreview(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!sourceText.trim()) {
-      setErrorMessage("Paste source text before generating a local preview.");
+      setErrorMessage("Paste source text before submitting.");
       return;
     }
 
     const filledTranslations = translations.filter((item) => item.text.trim());
     if (filledTranslations.length === 0) {
-      setErrorMessage(
-        "Paste at least one translation text before generating a local preview.",
-      );
+      setErrorMessage("Paste at least one translation text before submitting.");
       return;
     }
 
+    setLoading(true);
     setErrorMessage(null);
-    const nextReview = {
-      mode: "paste-text",
-      title: metadata.title,
-      workName: metadata.workName,
-      sourceLanguage: metadata.sourceLanguage,
-      translationLanguage: metadata.translationLanguage,
-      status: "local_preview_only",
-      notes: [
-        "Paste-text mode currently generates a frontend-only review state.",
-        "This preview is not sent to the backend yet because the upload endpoint currently expects multipart files.",
-        "Segmentation should later accept this reviewed content as a next-step input.",
-      ],
-      items: [
-        {
-          id: "pasted-source",
-          documentId: undefined,
-          label: metadata.title || "Pasted source text",
-          role: "original",
-          language: metadata.sourceLanguage || null,
-          contentLength: sourceText.trim().length,
-          segmentCount: 0,
-          segments: [],
-          preview: buildPreview(sourceText),
-          status: "local_preview_only",
-          sourceKind: "local-paste",
-        },
-        ...filledTranslations.map((item, index) => ({
-          id: item.id,
-          documentId: undefined,
+
+    try {
+      const response = await ingestRawText({
+        title: metadata.title,
+        workName: metadata.workName,
+        sourceLanguage: metadata.sourceLanguage,
+        translationLanguage: metadata.translationLanguage,
+        sourceText,
+        translations: filledTranslations.map((item, index) => ({
           label: item.label.trim() || `Translation ${index + 1}`,
-          role: "translation" as const,
-          language: metadata.translationLanguage || null,
-          contentLength: item.text.trim().length,
-          segmentCount: 0,
-          segments: [],
-          preview: buildPreview(item.text),
-          status: "local_preview_only",
-          sourceKind: "local-paste" as const,
+          text: item.text,
         })),
-      ],
-    } satisfies UploadReviewState;
-    setReview(nextReview);
-    onReviewChange?.(nextReview);
+      });
+
+      const nextReview = mapUploadResponseToReview(response, "paste-text");
+      setReview(nextReview);
+      onReviewChange?.(nextReview);
+    } catch (error) {
+      setReview(null);
+      onReviewChange?.(null);
+      setErrorMessage(
+        error instanceof Error ? error.message : "The paste ingestion request failed.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   function updateMetadata(field: keyof MetadataForm, value: string) {
@@ -348,11 +334,16 @@ export function UploadWorkspace({
                   type="button"
                   className="button button--secondary"
                   onClick={addTranslation}
+                  disabled={loading}
                 >
                   Add Translation
                 </button>
-                <button type="submit" className="button button--primary">
-                  Generate Local Review
+                <button
+                  type="submit"
+                  className="button button--primary"
+                  disabled={loading}
+                >
+                  {loading ? "Ingesting text..." : "Ingest and Review"}
                 </button>
               </div>
             </form>
@@ -422,13 +413,4 @@ function createTranslationDraft(index: number): PastedTranslation {
     label: `Translation ${index}`,
     text: "",
   };
-}
-
-function buildPreview(text: string, maxLength = 220) {
-  const compact = text.replace(/\s+/g, " ").trim();
-  if (compact.length <= maxLength) {
-    return compact;
-  }
-
-  return `${compact.slice(0, maxLength - 3).trimEnd()}...`;
 }

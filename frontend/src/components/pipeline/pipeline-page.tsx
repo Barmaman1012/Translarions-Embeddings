@@ -59,6 +59,8 @@ export function PipelinePage() {
     useState<SimilarityResponse | null>(null);
   const [selectedVisualizationModel, setSelectedVisualizationModel] =
     useState<string>(SUPPORTED_EMBEDDING_MODELS[0]);
+  const [selectedVisualizationView, setSelectedVisualizationView] =
+    useState<"2d" | "3d">("2d");
   const [visualizationScope, setVisualizationScope] = useState<
     "all" | "source" | "translations"
   >("all");
@@ -288,6 +290,7 @@ export function PipelinePage() {
         modelName: selectedVisualizationModel,
         documentIds: selectedVisualizationDocumentIds,
         projectionMethod: "pca",
+        projectionDimensions: selectedVisualizationView === "3d" ? 3 : 2,
       });
       setVisualizationResult(response);
     } catch (error) {
@@ -501,6 +504,11 @@ export function PipelinePage() {
           onDocumentScopeChange={handleVisualizationScopeChange}
           selectedDocumentIds={selectedVisualizationDocumentIds}
           onDocumentToggle={handleVisualizationDocumentToggle}
+          selectedView={selectedVisualizationView}
+          onSelectedViewChange={(view) => {
+            setSelectedVisualizationView(view);
+            setVisualizationResult(null);
+          }}
           onLoadVisualization={handleLoadVisualization}
           isLoading={visualizationLoading}
           errorMessage={visualizationError}
