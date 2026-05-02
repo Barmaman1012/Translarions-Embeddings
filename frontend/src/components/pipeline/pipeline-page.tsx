@@ -389,9 +389,7 @@ export function PipelinePage() {
                   <span>{item.role}</span>
                 </div>
                 <p>
-                  {"preview" in item && item.preview
-                    ? item.preview
-                    : "Parsed text preview will appear here after upload."}
+                  {getItemPreviewText(item)}
                 </p>
               </article>
             ))}
@@ -517,6 +515,14 @@ export function PipelinePage() {
       </PipelineSection>
     </div>
   );
+}
+
+function getItemPreviewText(item: { preview?: unknown }): string {
+  if (typeof item.preview === "string" && item.preview) {
+    return item.preview;
+  }
+
+  return "Parsed text preview will appear here after upload.";
 }
 
 function buildDocumentStatuses(
