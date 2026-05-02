@@ -33,6 +33,13 @@ type ProjectedPoint = {
   color: string;
 };
 
+type ProjectedAxis = {
+  label: string;
+  color: string;
+  start: Vec3;
+  end: Vec3;
+};
+
 type CameraState = {
   yaw: number;
   pitch: number;
@@ -359,7 +366,7 @@ function drawGrid(
 
 function drawAxes(
   context: CanvasRenderingContext2D,
-  axes: Array<{ label: string; color: string; start: Vec3; end: Vec3 }>,
+  axes: ProjectedAxis[],
 ) {
   context.save();
   context.lineWidth = 1.6;
@@ -433,7 +440,7 @@ function buildProjectedAxes(
   height: number,
   camera: CameraState,
   sceneBounds: SceneBounds,
-) {
+): ProjectedAxis[] {
   const axisLength = Math.max(sceneBounds.radius * 1.25, 1.2);
   const axes = [
     {
@@ -481,10 +488,7 @@ function buildProjectedAxes(
       };
     })
     .filter(
-      (
-        axis,
-      ): axis is { label: string; color: string; start: Vec3; end: Vec3 } =>
-        Boolean(axis),
+      (axis): axis is ProjectedAxis => axis !== null,
     );
 }
 
