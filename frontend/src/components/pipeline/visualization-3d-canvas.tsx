@@ -472,8 +472,7 @@ function buildProjectedAxes(
     },
   ];
 
-  return axes
-    .map((axis) => {
+  const projectedAxes: Array<ProjectedAxis | null> = axes.map((axis) => {
       const start = projectWorldPoint(sceneBounds.center, width, height, camera);
       const end = projectWorldPoint(axis.end, width, height, camera);
       if (!start || !end) {
@@ -486,10 +485,9 @@ function buildProjectedAxes(
         start,
         end,
       };
-    })
-    .filter(
-      (axis): axis is ProjectedAxis => axis !== null,
-    );
+    });
+
+  return projectedAxes.filter((axis): axis is ProjectedAxis => axis !== null);
 }
 
 function projectPoint(
@@ -603,20 +601,20 @@ function normalizeAxis(value: number, values: number[]) {
 function findProjectedPointAt(
   projectedPoints: ProjectedPoint[],
   pointer: { x: number; y: number } | null,
-) {
+): string | null {
   if (!pointer) {
     return null;
   }
 
   let bestMatch: { id: string; distance: number } | null = null;
-  projectedPoints.forEach((projectedPoint) => {
+  for (const projectedPoint of projectedPoints) {
     const dx = projectedPoint.x - pointer.x;
     const dy = projectedPoint.y - pointer.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const threshold = Math.max(8, projectedPoint.scale * 10);
 
     if (distance > threshold) {
-      return;
+      continue;
     }
 
     if (!bestMatch || distance < bestMatch.distance) {
@@ -625,7 +623,7 @@ function findProjectedPointAt(
         distance,
       };
     }
-  });
+  }
 
   return bestMatch?.id ?? null;
 }

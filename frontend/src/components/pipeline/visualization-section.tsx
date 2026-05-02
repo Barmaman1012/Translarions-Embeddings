@@ -574,6 +574,10 @@ function formatDomain3d(points: VisualizationPoint[], axis: "x" | "y" | "z") {
   return `${Math.min(...values).toFixed(3)} to ${Math.max(...values).toFixed(3)}`;
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function EmptyPanel({
   message,
   compact = false,
